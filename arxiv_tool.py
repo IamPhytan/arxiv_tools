@@ -155,4 +155,8 @@ if __name__ == '__main__':
     rm_dirs(dst_dir)
 
     out_archive = f'{dst_dir.name}.tar.gz'
-    os.system(f'cd {dst_dir} && pdflatex root.tex && biber root && pdflatex root.tex && arxiv-collector root.tex && mv arxiv.tar.gz {out_archive}')
+    os.system(
+        f"cd {dst_dir} && pdflatex root.tex && bibtex root && pdflatex root.tex && arxiv-collector root.tex && mv arxiv.tar.gz {out_archive}"
+    )
+
+    print(f"Done! You can upload {out_archive} to ArXiv")
