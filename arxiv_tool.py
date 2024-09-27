@@ -39,13 +39,43 @@ def fuse_texs(dir_path: pathlib.Path, tex_source: str) -> str:
     return tex_source
 
 
+def is_commented(s: str) -> bool:
+    line = s.strip()
+    return line.startswith("%") and len(line) > 2
+
+
 def remove_commented_lines(tex_source: str) -> str:
     return "\n".join(
         filter(
-            lambda l: not l.startswith("%"),
+            lambda l: not is_commented(l),
             tex_source.split("\n"),
         ),
     )
+
+
+def move_data(
+    dir_path: pathlib.Path,
+    tex_source: str,
+) -> str:
+    tex_source = remove_commented_lines(tex_source)
+    dat_regex = re.compile(r"\\DTLloaddb\[.*\]\{.*\}\{(.*)\}")
+
+    for include in reversed(list(dat_regex.finditer(tex_source))):
+        dat = pathlib.Path(include.group(1))
+        dat_path = dir_path / dat
+        dat_out_name = str(dat).replace("/", "-")
+        dat_out_path = dir_path / dat_out_name
+        shutil.move(dat_path, dat_out_path)
+
+        start, end = include.span(1)
+        tex_source = replace_between_indices(
+            tex_source,
+            start,
+            end,
+            dat_out_name,
+        )
+
+    return tex_source
 
 
 def move_figures(
@@ -85,7 +115,13 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Publish arXiv papers')
     parser.add_argument('src_dir', type=str, help='source directory')
     parser.add_argument('dst_dir', type=str, help='destination directory')
-    parser.add_argument("--ignore-img", type=str, nargs="+", help="ignored image names")
+    parser.add_argument(
+        "--ignore-img",
+        type=str,
+        nargs="+",
+        help="ignored image names",
+        default=[],
+    )
     parser.add_argument('-f', '--force', action='store_true', help='delete dst_dir if it exists')
     args = parser.parse_args()
 
@@ -110,6 +146,7 @@ if __name__ == '__main__':
 
     tex_source = fuse_texs(dst_dir, tex_source)
     tex_source = move_figures(dst_dir, tex_source, ignored_imgnames)
+    tex_source = move_data(dst_dir, tex_source)
     tex_source = add_arxiv_message(tex_source)
 
     with open(root, 'w') as file:
